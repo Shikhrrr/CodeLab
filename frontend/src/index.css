@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neo-bg: #FAF9F5;
+  --color-neo-canvas: #FFFFFF;
+  --color-neo-black: #121212;
+  --color-neo-yellow: #FFE814;
+  --color-neo-cyan: #60EFFF;
+  --color-neo-green: #00F59B;
+  --color-neo-pink: #FF69B4;
+  --color-neo-orange: #FF8C42;
+  --color-neo-purple: #C490E4;
+
+  --shadow-neo: 4px 4px 0px 0px #121212;
+  --shadow-neo-sm: 2px 2px 0px 0px #121212;
+  --shadow-neo-lg: 6px 6px 0px 0px #121212;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-neo-bg);
+    color: var(--color-neo-black);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+}
+
+/* Reusable Neo-Brutalist utility classes */
+.neo-btn {
+  padding: 0.5rem 1rem;
+  background-color: var(--color-neo-yellow);
+  font-weight: 800;
+  color: var(--color-neo-black);
+  border: 2px solid var(--color-neo-black);
+  box-shadow: var(--shadow-neo);
+  cursor: pointer;
+  transition: all 0.08s ease-in-out;
+}
+
+.neo-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-neo-lg);
+}
+
+.neo-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.neo-card {
+  background-color: #FFFFFF;
+  border: 2px solid var(--color-neo-black);
+  box-shadow: var(--shadow-neo);
+  padding: 1rem;
+}

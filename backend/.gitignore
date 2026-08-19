@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+.venv/
+
+# Database
+dump.rdb
+db.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store

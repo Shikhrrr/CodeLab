@@ -1,0 +1,34 @@
+# Django Core & WebSockets
+django>=5.1,<5.2
+daphne>=4.1.2
+channels>=4.2.0
+channels-redis>=4.2.1
+django-cors-headers
+django-ratelimit
+
+# Task Queue & In-Memory Store
+celery>=5.4.0
+redis>=5.2.0
+
+# Database Driver
+# psycopg2-binary>=2.9.10
+'psycopg[c]'
+
+# AI Orchestration & Providers
+langgraph>=1.0.0
+langchain>=1.0.0
+langchain-core>=1.0.0
+langchain-google-genai>=2.0.0
+langchain-groq>=0.2.0
+
+# Schemas, Data Validation & Graph Analysis
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+networkx>=3.4.2
+
+# Utilities & Environment
+python-dotenv>=1.0.1
+httpx>=0.28.0
+
+django-channels-presence 
+redis-lock
