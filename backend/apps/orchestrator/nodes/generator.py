@@ -13,7 +13,9 @@ Rules:
 - For every planned file in the manifest, generate its exact relative path, raw code content, and a brief description.
 - Ensure docker-compose.yml correctly configures ports, networks, and environment variables matching the topology.
 - Include valid Dockerfiles and basic runnable starter code for backend endpoints.
-- Do NOT output markdown code blocks inside the file content string; return raw file text only."""
+- Do NOT output markdown code blocks inside the file content string; return raw file text only.
+- If the user provides custom instructions in the `description` (e.g., "Use Redux for state", "Include JWT middleware"), you MUST implement those specific requests in the generated code for that technology.
+"""
 
 def generate_codebase(state: OrchestratorState) -> dict:
     llm = get_llm(temperature=0.2)

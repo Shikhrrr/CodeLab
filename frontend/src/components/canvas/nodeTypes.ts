@@ -11,7 +11,8 @@ import ArchitectureNode from './ArchitectureNode';
  * simply replace its entry here — no consumers need to change.
  */
 export const nodeTypes: NodeTypes = {
-  service:  ArchitectureNode,
+  service:  ArchitectureNode,   // legacy key — kept for persisted canvases
+  backend:  ArchitectureNode,   // new canonical role key
   database: ArchitectureNode,
   cache:    ArchitectureNode,
   queue:    ArchitectureNode,

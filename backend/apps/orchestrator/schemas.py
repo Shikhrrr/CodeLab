@@ -13,6 +13,7 @@ class CanvasNodeData(BaseModel):
     port: Optional[int] = None 
     env_vars: Optional[Dict[str, str]] = Field(default_factory=dict)
     database_name: Optional[str] = None
+    description: Optional[str] = None  
 
 class CanvasNode(BaseModel):
     id: str 

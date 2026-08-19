@@ -1,5 +1,5 @@
-import { memo, useState } from 'react';
-import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
+import { memo, useState, useCallback } from 'react';
+import { Handle, Position, type NodeProps, type Node, useReactFlow } from '@xyflow/react';
 import {
   Server,
   Database,
@@ -11,8 +11,13 @@ import {
   ChevronDown,
   ChevronUp,
   Lock,
+  MessageSquare,
+  X,
+  Trash2,
 } from 'lucide-react';
-import type { ArchitectureNodeType, CustomNodeData } from '../../types';
+import type { CustomNodeData } from '../../types';
+import { NODE_ROLES } from '../../config/nodeConfig';
+
 
 // ─── Per-type design tokens ───────────────────────────────────────────────────
 
@@ -23,8 +28,10 @@ interface NodeConfig {
   label: string;
 }
 
-const NODE_CONFIG: Record<ArchitectureNodeType, NodeConfig> = {
+// Derived from NODE_ROLES — keeps colours consistent across Sidebar and canvas.
+const NODE_CONFIG: Record<string, NodeConfig> = {
   service:  { bg: '#FFE814', accent: '#d4be00', Icon: Server,   label: 'Service'  },
+  backend:  { bg: '#FFE814', accent: '#d4be00', Icon: Server,   label: 'Service'  },
   database: { bg: '#60EFFF', accent: '#00c8e0', Icon: Database, label: 'Database' },
   cache:    { bg: '#FF69B4', accent: '#d94090', Icon: Cpu,      label: 'Cache'    },
   queue:    { bg: '#00F59B', accent: '#00c278', Icon: Layers,   label: 'Queue'    },
@@ -97,11 +104,23 @@ function EnvVarsBadge({ envVars }: { envVars: Record<string, string> }) {
 // We accept the generic NodeProps and cast internally.
 type ArchitectureNodeProps = NodeProps<Node>;
 
-function ArchitectureNode({ data: rawData, selected }: ArchitectureNodeProps) {
+function ArchitectureNode({ data: rawData, selected, id }: ArchitectureNodeProps) {
+  const { deleteElements } = useReactFlow();
   const data = rawData as unknown as CustomNodeData;
-  const { nodeType, label, techStack, port, envVars, isLocked, lockedBy } = data;
-  const cfg = NODE_CONFIG[nodeType] ?? NODE_CONFIG.service;
+  // Prefer canonical `role` field; fall back to legacy `nodeType` for old persisted nodes
+  const resolvedType = ((data.role ?? data.nodeType) as string | undefined) ?? 'service';
+  const { label, techStack, technology, port, envVars, isLocked, lockedBy } = data;
+  const description = (rawData as Record<string, unknown>).description as string | undefined;
+  const displayTech = technology || techStack;
+
+  const cfg = NODE_CONFIG[resolvedType] ?? NODE_CONFIG.service;
   const { bg, accent, Icon, label: typeLabel } = cfg;
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleDelete = useCallback(() => {
+    void deleteElements({ nodes: [{ id }] });
+  }, [deleteElements, id]);
 
   const borderWidth = selected ? '3px' : '2px';
   const shadow = selected
@@ -134,8 +153,8 @@ function ArchitectureNode({ data: rawData, selected }: ArchitectureNodeProps) {
 
       {/* ── Header ── */}
       <div
-        style={{ background: bg, borderBottom: '2px solid #121212' }}
-        className="flex items-center gap-2 px-2.5 py-1.5"
+        style={{ background: bg, borderBottom: '2px solid #121212', position: 'relative' }}
+        className="flex items-center gap-2 px-2.5 py-1.5 group/header"
       >
         <Icon size={14} strokeWidth={2.5} color="#121212" />
         <div className="flex-1 overflow-hidden">
@@ -149,19 +168,110 @@ function ArchitectureNode({ data: rawData, selected }: ArchitectureNodeProps) {
             {typeLabel}
           </div>
         </div>
+
+        {/* ── Delete X button (visible on hover, hidden when confirming) ── */}
+        {!confirmDelete && (
+          <button
+            type="button"
+            title="Delete node"
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmDelete(true);
+            }}
+            className="opacity-0 group-hover/header:opacity-100 transition-opacity"
+            style={{
+              width: 18,
+              height: 18,
+              border: '1.5px solid #121212',
+              background: '#FF6B6B',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '1px 1px 0 #121212',
+            }}
+          >
+            <X size={10} strokeWidth={3} color="#121212" />
+          </button>
+        )}
       </div>
+
+      {/* ── Inline confirm-delete bar ── */}
+      {confirmDelete && (
+        <div
+          style={{
+            background: '#FF6B6B',
+            borderBottom: '2px solid #121212',
+            padding: '5px 8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <Trash2 size={11} strokeWidth={3} color="#121212" style={{ flexShrink: 0 }} />
+          <span
+            style={{
+              fontFamily: 'monospace',
+              fontSize: 10,
+              fontWeight: 900,
+              color: '#121212',
+              flex: 1,
+              letterSpacing: '0.05em',
+            }}
+          >
+            DELETE?
+          </span>
+          {/* Confirm */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+            style={{
+              border: '1.5px solid #121212',
+              background: '#121212',
+              color: '#FF6B6B',
+              fontFamily: 'monospace',
+              fontSize: 9,
+              fontWeight: 900,
+              padding: '2px 6px',
+              cursor: 'pointer',
+              letterSpacing: '0.08em',
+            }}
+          >
+            YES
+          </button>
+          {/* Cancel */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }}
+            style={{
+              border: '1.5px solid #121212',
+              background: '#FFFFFF',
+              fontFamily: 'monospace',
+              fontSize: 9,
+              fontWeight: 900,
+              padding: '2px 6px',
+              cursor: 'pointer',
+              letterSpacing: '0.08em',
+              color: '#121212',
+            }}
+          >
+            CANCEL
+          </button>
+        </div>
+      )}
 
       {/* ── Body ── */}
       <div className="space-y-1 p-2.5 text-[#121212]">
         {/* Tech stack pill */}
-        {techStack && (
+        {displayTech && (
           <div className="inline-flex items-center border border-[#121212] bg-[#FAF9F5] px-1.5 py-0.5">
-            <span className="font-mono text-[10px] font-bold">{techStack}</span>
+            <span className="font-mono text-[10px] font-bold">{displayTech}</span>
           </div>
         )}
 
         {/* Port badge */}
-        {port !== undefined && (
+        {port !== undefined && port > 0 && (
           <div className="font-mono text-[10px] text-[#555]">
             <span className="font-bold text-[#121212]">PORT</span>{' '}
             <span
@@ -175,6 +285,19 @@ function ArchitectureNode({ data: rawData, selected }: ArchitectureNodeProps) {
 
         {/* Env vars */}
         {envVars && <EnvVarsBadge envVars={envVars} />}
+
+        {/* Description indicator */}
+        {description && description.trim().length > 0 && (
+          <div
+            style={{ borderTop: '1px dashed #D1D1C7', paddingTop: 4, marginTop: 2 }}
+            className="flex items-center gap-1"
+          >
+            <MessageSquare size={9} strokeWidth={2.5} color="#888" />
+            <span className="font-mono text-[9px] text-[#888] truncate" title={description}>
+              {description.slice(0, 32)}{description.length > 32 ? '…' : ''}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── React Flow Handles ── */}

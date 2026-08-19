@@ -1,104 +1,54 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Server,
   Database,
   Cpu,
   Layers,
   Globe,
+  Wrench,
+  Monitor,
   ChevronLeft,
   ChevronRight,
+  Search,
+  X,
 } from 'lucide-react';
-import type { ArchitectureNodeType } from '../../types';
+import { NODE_ROLES, ROLE_ORDER, defaultTechForRole } from '../../config/nodeConfig';
 
-// ─── Palette item definitions ─────────────────────────────────────────────────
+// ─── Role → icon map ──────────────────────────────────────────────────────────
 
-interface PaletteItem {
-  type: ArchitectureNodeType;
-  label: string;
-  techStack: string;
-  port: number;
-  description: string;
-  bg: string;
-  Icon: React.ElementType;
-}
-
-const PALETTE_ITEMS: PaletteItem[] = [
-  {
-    type: 'service',
-    label: 'Web Service',
-    techStack: 'FastAPI',
-    port: 8000,
-    description: 'HTTP microservice or REST API',
-    bg: '#FFE814',
-    Icon: Server,
-  },
-  {
-    type: 'database',
-    label: 'Database',
-    techStack: 'Postgres',
-    port: 5432,
-    description: 'Relational or document store',
-    bg: '#60EFFF',
-    Icon: Database,
-  },
-  {
-    type: 'cache',
-    label: 'Redis Cache',
-    techStack: 'Redis',
-    port: 6379,
-    description: 'In-memory cache / pub-sub',
-    bg: '#FF69B4',
-    Icon: Cpu,
-  },
-  {
-    type: 'queue',
-    label: 'Message Queue',
-    techStack: 'Kafka',
-    port: 9092,
-    description: 'Async event / message broker',
-    bg: '#00F59B',
-    Icon: Layers,
-  },
-  {
-    type: 'gateway',
-    label: 'API Gateway',
-    techStack: 'Nginx',
-    port: 80,
-    description: 'Reverse proxy / rate limiter',
-    bg: '#FF8C42',
-    Icon: Globe,
-  },
-  {
-    type: 'worker',
-    label: 'Worker',
-    techStack: 'Celery',
-    port: 0,
-    description: 'Async task / background job runner',
-    bg: '#C084FC',
-    Icon: Cpu,
-  },
-  {
-    type: 'frontend',
-    label: 'Frontend',
-    techStack: 'React',
-    port: 3000,
-    description: 'Client-side web application',
-    bg: '#FCA5A5',
-    Icon: Globe,
-  },
-];
+const ROLE_ICONS: Record<string, React.ElementType> = {
+  backend:  Server,
+  frontend: Monitor,
+  database: Database,
+  cache:    Cpu,
+  queue:    Layers,
+  gateway:  Globe,
+  worker:   Wrench,
+};
 
 // ─── Individual draggable card ────────────────────────────────────────────────
 
-function PaletteCard({ item }: { item: PaletteItem }) {
-  const { type, label, techStack, port, description, bg, Icon } = item;
+interface PaletteCardProps {
+  role: string;
+}
+
+function PaletteCard({ role }: PaletteCardProps) {
+  const cfg  = NODE_ROLES[role];
+  if (!cfg) return null;
+
+  const Icon        = ROLE_ICONS[role] ?? Server;
+  const defaultTech = defaultTechForRole(role);
 
   function handleDragStart(event: React.DragEvent<HTMLDivElement>) {
     event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData(
-      'application/reactflow',
-      JSON.stringify({ type, label, techStack, port }),
-    );
+    const payload = JSON.stringify({
+      role,
+      technology:  defaultTech.name,
+      port:        defaultTech.port,
+      description: '',
+    });
+    event.dataTransfer.setData('application/reactflow', payload);
+    event.dataTransfer.setData('text/plain', payload);
   }
 
   return (
@@ -132,27 +82,31 @@ function PaletteCard({ item }: { item: PaletteItem }) {
     >
       {/* Colour header strip */}
       <div
-        style={{ background: bg, borderBottom: '2px solid #121212' }}
+        style={{ background: cfg.color, borderBottom: '2px solid #121212' }}
         className="flex items-center gap-2 px-2.5 py-1.5"
       >
         <Icon size={13} strokeWidth={2.5} color="#121212" />
         <span className="font-mono text-[11px] font-black uppercase tracking-wider text-[#121212]">
-          {label}
+          {cfg.label}
         </span>
       </div>
 
-      {/* Body */}
-      <div className="space-y-1 px-2.5 py-2 font-mono text-[10px] text-[#121212]">
-        <div className="flex items-center gap-1.5">
+      {/* Tech pills */}
+      <div className="flex flex-wrap gap-1 px-2.5 py-2">
+        {cfg.techs.slice(0, 3).map((t) => (
           <span
-            style={{ background: bg, border: '1px solid #121212' }}
-            className="px-1 font-bold"
+            key={t.name}
+            style={{ background: cfg.color, border: '1px solid #121212' }}
+            className="font-mono text-[9px] font-bold px-1.5 py-0.5 text-[#121212]"
           >
-            {techStack}
+            {t.name}
           </span>
-          <span className="text-[#555]">:{port}</span>
-        </div>
-        <p className="text-[#666] leading-tight">{description}</p>
+        ))}
+        {cfg.techs.length > 3 && (
+          <span className="font-mono text-[9px] text-[#888] self-center">
+            +{cfg.techs.length - 3} more
+          </span>
+        )}
       </div>
     </div>
   );
@@ -161,24 +115,41 @@ function PaletteCard({ item }: { item: PaletteItem }) {
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed,  setCollapsed]  = useState(false);
+  const [query,      setQuery]      = useState('');
+
+  const filteredRoles = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return ROLE_ORDER;
+    return ROLE_ORDER.filter((role) => {
+      const cfg = NODE_ROLES[role];
+      if (!cfg) return false;
+      if (cfg.label.toLowerCase().includes(q)) return true;
+      return cfg.techs.some((t) => t.name.toLowerCase().includes(q));
+    });
+  }, [query]);
 
   return (
     <aside
       style={{
-        width: collapsed ? 0 : 220,
-        minWidth: collapsed ? 0 : 220,
-        borderRight: collapsed ? 'none' : '3px solid #121212',
+        width: collapsed ? 32 : 220,
+        minWidth: collapsed ? 32 : 220,
+        borderRight: '3px solid #121212',
         background: '#FAF9F5',
         position: 'relative',
-        transition: 'width 0.15s ease, min-width 0.15s ease',
-        overflow: 'hidden',
+        transition: 'width 0.2s ease, min-width 0.2s ease',
         flexShrink: 0,
       }}
     >
       {/* Inner content — hidden when collapsed */}
-      {!collapsed && (
-        <div className="flex h-full flex-col">
+      <div
+        style={{
+          height: '100%',
+          display: collapsed ? 'none' : 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
           {/* Header */}
           <div
             style={{ borderBottom: '2px solid #121212', background: '#121212' }}
@@ -192,24 +163,66 @@ export default function Sidebar() {
             </p>
           </div>
 
-          {/* Cards */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            {PALETTE_ITEMS.map((item) => (
-              <PaletteCard key={item.type} item={item} />
-            ))}
+          {/* Search */}
+          <div
+            style={{ borderBottom: '2px solid #121212', background: '#FFFFFF' }}
+            className="relative flex items-center"
+          >
+            <Search
+              size={11}
+              strokeWidth={2.5}
+              className="absolute left-2.5 text-[#888] pointer-events-none"
+            />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search tech… e.g. MySQL"
+              style={{
+                width: '100%',
+                padding: '6px 28px 6px 26px',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                fontSize: 10,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: '#121212',
+              }}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-2.5 text-[#888] hover:text-[#121212]"
+              >
+                <X size={11} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
 
-          {/* Footer hint */}
+          {/* Cards */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {filteredRoles.length === 0 ? (
+              <p className="font-mono text-[10px] text-[#999] text-center pt-4">
+                No blocks match "{query}"
+              </p>
+            ) : (
+              filteredRoles.map((role) => (
+                <PaletteCard key={role} role={role} />
+              ))
+            )}
+          </div>
+
+          {/* Footer */}
           <div
             style={{ borderTop: '2px solid #121212' }}
             className="px-3 py-2 font-mono text-[9px] text-[#999] bg-[#F0EFE9]"
           >
-            7 block types · drag to place
+            {filteredRoles.length}/{ROLE_ORDER.length} block types · drag to place
           </div>
-        </div>
-      )}
+      </div>
 
-      {/* Toggle button — sits flush against the right edge */}
+      {/* Toggle button */}
       <button
         onClick={() => setCollapsed((c) => !c)}
         type="button"
@@ -217,31 +230,19 @@ export default function Sidebar() {
         style={{
           position: 'absolute',
           top: '50%',
-          right: collapsed ? -36 : -18,
+          right: -16,
           transform: 'translateY(-50%)',
           zIndex: 10,
           width: 32,
           height: 48,
           border: '2px solid #121212',
-          borderLeft: collapsed ? '2px solid #121212' : 'none',
+          borderLeft: 'none',
           background: '#FFE814',
           boxShadow: '3px 3px 0px 0px #121212',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'right 0.15s ease',
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.transform =
-            'translateY(calc(-50% - 1px)) translateX(-1px)';
-          (e.currentTarget as HTMLButtonElement).style.boxShadow =
-            '4px 4px 0px 0px #121212';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-50%)';
-          (e.currentTarget as HTMLButtonElement).style.boxShadow =
-            '3px 3px 0px 0px #121212';
         }}
       >
         {collapsed ? (

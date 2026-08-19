@@ -17,9 +17,20 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { nodeTypes } from './nodeTypes';
+import NodePropertiesPanel from './NodePropertiesPanel';
 import useCanvasStore from '../../store/useCanvasStore';
 import { useWhiteboardSync } from '../../hooks/useWhiteboardSync';
 import { normaliseNodeData } from '../../utils/canvas';
+import { defaultTechForRole, NODE_ROLES } from '../../config/nodeConfig';
+
+// ─── Minimap node colour ──────────────────────────────────────────────────────
+
+function miniMapColor(node: Node): string {
+  const role = (node.data as Record<string, unknown>).role as string | undefined;
+  const nodeType = node.type ?? '';
+  const key = role ?? nodeType;
+  return NODE_ROLES[key]?.color ?? '#ccc';
+}
 
 // ─── Inner canvas (must be inside ReactFlowProvider) ─────────────────────────
 
@@ -32,13 +43,14 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
   const { screenToFlowPosition } = useReactFlow();
 
   // Store slices
-  const nodes           = useCanvasStore((s) => s.nodes);
-  const edges           = useCanvasStore((s) => s.edges);
-  const onNodesChange   = useCanvasStore((s) => s.onNodesChange);
-  const onEdgesChange   = useCanvasStore((s) => s.onEdgesChange);
-  const onConnect       = useCanvasStore((s) => s.onConnect);
-  const addNode         = useCanvasStore((s) => s.addNode);
-  const pushHistory     = useCanvasStore((s) => s.pushHistory);
+  const nodes             = useCanvasStore((s) => s.nodes);
+  const edges             = useCanvasStore((s) => s.edges);
+  const onNodesChange     = useCanvasStore((s) => s.onNodesChange);
+  const onEdgesChange     = useCanvasStore((s) => s.onEdgesChange);
+  const onConnect         = useCanvasStore((s) => s.onConnect);
+  const addNode           = useCanvasStore((s) => s.addNode);
+  const pushHistory       = useCanvasStore((s) => s.pushHistory);
+  const setSelectedNodeId = useCanvasStore((s) => s.setSelectedNodeId);
 
   // Sync hook
   const {
@@ -56,7 +68,6 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
     (changes: NodeChange[]) => {
       onNodesChange(changes);
 
-      // Broadcast position-only delta for move changes (don't spam for select/remove)
       for (const ch of changes) {
         if (ch.type === 'position' && ch.position) {
           broadcastNodePosition(ch.id, ch.position);
@@ -65,8 +76,25 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
           broadcastNodeDelete(ch.id);
         }
       }
+
+      // ── Selection tracking ──────────────────────────────────────────────
+      // React Flow sends deselect + select in the same batch when switching
+      // nodes. We must let selected:true always beat selected:false, so we
+      // scan the whole batch first rather than processing serially.
+      const selectChanges = changes.filter((ch): ch is NodeChange & { type: 'select' } =>
+        ch.type === 'select',
+      );
+      if (selectChanges.length > 0) {
+        const winner = selectChanges.find((ch) => ch.selected);
+        if (winner) {
+          setSelectedNodeId(winner.id);
+        } else {
+          // All select changes are false → nothing selected
+          setSelectedNodeId(null);
+        }
+      }
     },
-    [onNodesChange, broadcastNodePosition, broadcastNodeDelete],
+    [onNodesChange, broadcastNodePosition, broadcastNodeDelete, setSelectedNodeId],
   );
 
   const handleEdgesChange = useCallback(
@@ -84,7 +112,6 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
   const handleConnect = useCallback(
     (connection: Connection) => {
       onConnect(connection);
-      // Build a synthetic edge so we can broadcast it with an id
       const newEdge: Edge = {
         id: `e-${connection.source}-${connection.target}-${Date.now()}`,
         source: connection.source,
@@ -98,6 +125,28 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
     [onConnect, broadcastEdgeAdd, triggerCanvasSave],
   );
 
+  // ── onNodesDelete / onEdgesDelete — fires after React Flow removes items ──
+
+  const handleNodesDelete = useCallback(
+    (deleted: Node[]) => {
+      for (const n of deleted) {
+        broadcastNodeDelete(n.id);
+      }
+      triggerCanvasSave();
+    },
+    [broadcastNodeDelete, triggerCanvasSave],
+  );
+
+  const handleEdgesDelete = useCallback(
+    (deleted: Edge[]) => {
+      for (const e of deleted) {
+        broadcastEdgeDelete(e.id);
+      }
+      triggerCanvasSave();
+    },
+    [broadcastEdgeDelete, triggerCanvasSave],
+  );
+
   // ── Drag-and-drop from palette sidebar ──────────────────────────────────
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -109,10 +158,13 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
 
-      const raw = event.dataTransfer.getData('application/reactflow');
+      const raw =
+        event.dataTransfer.getData('application/reactflow') ||
+        event.dataTransfer.getData('text/plain');
       if (!raw) return;
 
-      let payload: { type: string; label: string; techStack: string; port: number };
+      // New payload shape: { role, technology, port, description }
+      let payload: { role: string; technology: string; port: number; description: string };
       try {
         payload = JSON.parse(raw) as typeof payload;
       } catch {
@@ -122,36 +174,45 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
 
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
 
+      // Resolve defaults from nodeConfig when payload fields are empty
+      const tech = payload.technology || defaultTechForRole(payload.role).name;
+      const port = payload.port ?? defaultTechForRole(payload.role).port;
+
       const rawData = {
-        id: `node-${Date.now()}`,
-        label: payload.label,
-        nodeType: payload.type,
-        techStack: payload.techStack,
-        port: payload.port,
+        id:          `node-${Date.now()}`,
+        label:       NODE_ROLES[payload.role]?.label ?? payload.role,
+        nodeType:    payload.role,   // for ArchitectureNode backward-compat
+        role:        payload.role,
+        technology:  tech,
+        techStack:   tech,           // keep techStack in sync for rendering pill
+        port:        port,
+        description: payload.description ?? '',
       };
 
       const newNode: Node = {
-        id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        type: payload.type,
+        id:       `node-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        type:     payload.role,
         position,
-        data: normaliseNodeData(rawData as Record<string, unknown>),
+        data:     normaliseNodeData(rawData as Record<string, unknown>),
       };
 
-      pushHistory();          // save undo snapshot before mutating
+      pushHistory();
       addNode(newNode);
       broadcastNodeAdd(newNode);
+      triggerCanvasSave();
     },
-    [screenToFlowPosition, addNode, pushHistory, broadcastNodeAdd],
+    [screenToFlowPosition, addNode, pushHistory, broadcastNodeAdd, triggerCanvasSave],
   );
 
-  // ── Node drag stop — push history + ensure final position is broadcast ──
+  // ── Node drag stop ────────────────────────────────────────────────────────
 
   const handleNodeDragStop: OnNodeDrag = useCallback(
     (_event, node) => {
       pushHistory();
       broadcastNodePosition(node.id, node.position);
+      triggerCanvasSave();
     },
-    [pushHistory, broadcastNodePosition],
+    [pushHistory, broadcastNodePosition, triggerCanvasSave],
   );
 
   return (
@@ -162,9 +223,13 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
       onNodesChange={handleNodesChange}
       onEdgesChange={handleEdgesChange}
       onConnect={handleConnect}
+      onNodesDelete={handleNodesDelete}
+      onEdgesDelete={handleEdgesDelete}
       onNodeDragStop={handleNodeDragStop}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onNodeClick={(_event, node) => setSelectedNodeId(node.id)}
+      onPaneClick={() => setSelectedNodeId(null)}
       fitView
       fitViewOptions={{ padding: 0.2 }}
       deleteKeyCode="Backspace"
@@ -192,17 +257,11 @@ function InnerCanvas({ roomId, passcode }: InnerCanvasProps) {
           background: '#FAF9F5',
         }}
         maskColor="rgba(18,18,18,0.06)"
-        nodeColor={(node) => {
-          const colorMap: Record<string, string> = {
-            service: '#FFE814',
-            database: '#60EFFF',
-            cache: '#FF69B4',
-            queue: '#00F59B',
-            gateway: '#FF8C42',
-          };
-          return colorMap[node.type ?? ''] ?? '#ccc';
-        }}
+        nodeColor={miniMapColor}
       />
+
+      {/* Properties panel — floats over the canvas, inside the RF context */}
+      <NodePropertiesPanel onChanged={triggerCanvasSave} />
     </ReactFlow>
   );
 }

@@ -69,13 +69,12 @@ export default function RightDrawer({ roomId, passcode }: RightDrawerProps) {
   return (
     <aside
       style={{
-        width: collapsed ? 0 : DRAWER_WIDTH,
-        minWidth: collapsed ? 0 : DRAWER_WIDTH,
-        borderLeft: collapsed ? 'none' : '3px solid #121212',
+        width: collapsed ? 32 : DRAWER_WIDTH,
+        minWidth: collapsed ? 32 : DRAWER_WIDTH,
+        borderLeft: '3px solid #121212',
         background: '#FAF9F5',
         position: 'relative',
-        transition: 'width 0.15s ease, min-width 0.15s ease',
-        overflow: 'hidden',
+        transition: 'width 0.2s ease, min-width 0.2s ease',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -89,20 +88,19 @@ export default function RightDrawer({ roomId, passcode }: RightDrawerProps) {
         style={{
           position: 'absolute',
           top: '50%',
-          left: collapsed ? -36 : -18,
+          left: -16,
           transform: 'translateY(-50%)',
           zIndex: 10,
           width: 32,
           height: 48,
           border: '2px solid #121212',
-          borderRight: collapsed ? '2px solid #121212' : 'none',
+          borderRight: 'none',
           background: '#FFE814',
-          boxShadow: '3px 3px 0 #121212',
+          boxShadow: '-3px 3px 0 #121212',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'left 0.15s ease',
         }}
       >
         {collapsed
@@ -111,8 +109,14 @@ export default function RightDrawer({ roomId, passcode }: RightDrawerProps) {
       </button>
 
       {/* ── Panel content ────────────────────────────────────────────────── */}
-      {!collapsed && (
-        <div className="flex h-full flex-col overflow-hidden">
+      <div
+        style={{
+          flex: 1,
+          overflow: 'hidden',
+          display: collapsed ? 'none' : 'flex',
+          flexDirection: 'column',
+        }}
+      >
 
           {/* ── Tab bar ─────────────────────────────────────────────────── */}
           <div
@@ -187,7 +191,6 @@ export default function RightDrawer({ roomId, passcode }: RightDrawerProps) {
             </div>
           )}
         </div>
-      )}
     </aside>
   );
 }
