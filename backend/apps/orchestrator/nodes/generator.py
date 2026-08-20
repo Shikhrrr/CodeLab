@@ -15,6 +15,7 @@ Rules:
 - Include valid Dockerfiles and basic runnable starter code for backend endpoints.
 - Do NOT output markdown code blocks inside the file content string; return raw file text only.
 - If the user provides custom instructions in the `description` (e.g., "Use Redux for state", "Include JWT middleware"), you MUST implement those specific requests in the generated code for that technology.
+- Always add a README.md file in the root directory describing the project along with clear installation instruction on how to start the project on their local system using docker.
 """
 
 def generate_codebase(state: OrchestratorState) -> dict:
