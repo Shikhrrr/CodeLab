@@ -23,7 +23,7 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    overflow-x: hidden;
   }
 }
 
@@ -54,4 +54,25 @@
   border: 2px solid var(--color-neo-black);
   box-shadow: var(--shadow-neo);
   padding: 1rem;
+}
+
+/* ─── Infinite Marquee Animations ─────────────────────────────────────────── */
+
+@keyframes marquee-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-marquee-right {
+  display: flex;
+  width: max-content;
+  animation: marquee-right 28s linear infinite;
+}
+
+.animate-marquee-right:hover {
+  animation-play-state: paused;
 }

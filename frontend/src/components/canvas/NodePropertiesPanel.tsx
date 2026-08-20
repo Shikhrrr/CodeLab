@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, ChevronDown, FileText } from 'lucide-react';
 import useCanvasStore from '../../store/useCanvasStore';
-import { NODE_ROLES, defaultTechForRole } from '../../config/nodeConfig';
+import { NODE_ROLES } from '../../config/nodeConfig';
 
 // ─── Searchable tech dropdown ─────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ interface TechDropdownProps {
 }
 
 function TechDropdown({ role, value, onChange }: TechDropdownProps) {
-  const [open,  setOpen]  = useState(false);
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
@@ -191,17 +191,17 @@ interface NodePropertiesPanelProps {
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export default function NodePropertiesPanel({ onChanged }: NodePropertiesPanelProps) {
-  const selectedNodeId  = useCanvasStore((s) => s.selectedNodeId);
-  const nodes           = useCanvasStore((s) => s.nodes);
-  const updateNodeData  = useCanvasStore((s) => s.updateNodeData);
+  const selectedNodeId = useCanvasStore((s) => s.selectedNodeId);
+  const nodes = useCanvasStore((s) => s.nodes);
+  const updateNodeData = useCanvasStore((s) => s.updateNodeData);
   const setSelectedNodeId = useCanvasStore((s) => s.setSelectedNodeId);
 
   const node = nodes.find((n) => n.id === selectedNodeId) ?? null;
 
   // ── Local edit state (mirrors node.data fields) ───────────────────────
-  const [label,       setLabel]       = useState('');
-  const [technology,  setTechnology]  = useState('');
-  const [port,        setPort]        = useState<number>(0);
+  const [label, setLabel] = useState('');
+  const [technology, setTechnology] = useState('');
+  const [port, setPort] = useState<number>(0);
   const [description, setDescription] = useState('');
 
   // Sync local state when selection changes
@@ -226,7 +226,7 @@ export default function NodePropertiesPanel({ onChanged }: NodePropertiesPanelPr
 
   if (!node) return null;
 
-  const role      = (node.data as Record<string, unknown>).role as string ?? '';
+  const role = (node.data as Record<string, unknown>).role as string ?? '';
   const roleColor = NODE_ROLES[role]?.color ?? '#FFE814';
 
   // ── Tech selection: auto-fill port ───────────────────────────────────

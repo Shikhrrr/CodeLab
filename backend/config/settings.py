@@ -127,6 +127,9 @@ CHANNEL_LAYERS = {
 
 CORS_ALLOW_ALL_ORIGINS = True  # For local development
 
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + ['X-Room-Passcode']
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 

@@ -6,8 +6,10 @@ from apps.whiteboard.models import Room
 @database_sync_to_async
 def get_and_validate_room(room_id: str, passcode: str | None):
     try:
-        room = Room.objects.get(id=room_id)
-    except (Room.DoesNotExist, ValueError):
+        room = Room.objects.filter(id__iexact=room_id.strip()).first()
+        if not room:
+            return {"allowed": False, "reason": "ROOM_NOT_FOUND"}
+    except Exception:
         return {"allowed": False, "reason": "ROOM_NOT_FOUND"}
 
     if room.is_locked:
@@ -17,7 +19,7 @@ def get_and_validate_room(room_id: str, passcode: str | None):
         if not passcode or not check_password(passcode, room.passcode):
             return {"allowed": False, "reason": "INVALID_PASSCODE"}
 
-    return {"allowed": True, "room_name": room.name}
+    return {"allowed": True, "room_name": room.name, "room_id": str(room.id)}
 
 class RoomAuthMiddleWare:
     def __init__(self, inner):

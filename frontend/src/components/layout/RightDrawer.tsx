@@ -58,11 +58,11 @@ interface RightDrawerProps {
 }
 
 export default function RightDrawer({ roomId, passcode }: RightDrawerProps) {
-  const [collapsed, setCollapsed]   = useState(false);
-  const [activeTab, setActiveTab]   = useState<ActiveTab>('code');
+  const [collapsed, setCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('code');
 
-  const rawFiles     = useProjectStore((s) => s.files);
-  const files        = Array.isArray(rawFiles) ? rawFiles : [];
+  const rawFiles = useProjectStore((s) => s.files);
+  const files = Array.isArray(rawFiles) ? rawFiles : [];
   const activeFileId = useProjectStore((s) => s.activeFileId);
   const setActiveFile = useProjectStore((s) => s.setActiveFileId);
 
@@ -118,79 +118,79 @@ export default function RightDrawer({ roomId, passcode }: RightDrawerProps) {
         }}
       >
 
-          {/* ── Tab bar ─────────────────────────────────────────────────── */}
-          <div
-            style={{ borderBottom: '2px solid #121212', background: '#F0EFE9' }}
-            className="flex shrink-0"
-          >
-            <TabBtn
-              active={activeTab === 'code'}
-              onClick={() => setActiveTab('code')}
-              accent="#60EFFF"
-              icon={<Code2 size={12} strokeWidth={3} />}
-              label="CODE EXPLORER"
-            />
-            <div style={{ width: 2, background: '#121212' }} />
-            <TabBtn
-              active={activeTab === 'ai'}
-              onClick={() => setActiveTab('ai')}
-              accent="#FFE814"
-              icon={<Bot size={12} strokeWidth={3} />}
-              label="AI LOGS"
-            />
-          </div>
+        {/* ── Tab bar ─────────────────────────────────────────────────── */}
+        <div
+          style={{ borderBottom: '2px solid #121212', background: '#F0EFE9' }}
+          className="flex shrink-0"
+        >
+          <TabBtn
+            active={activeTab === 'code'}
+            onClick={() => setActiveTab('code')}
+            accent="#60EFFF"
+            icon={<Code2 size={12} strokeWidth={3} />}
+            label="CODE EXPLORER"
+          />
+          <div style={{ width: 2, background: '#121212' }} />
+          <TabBtn
+            active={activeTab === 'ai'}
+            onClick={() => setActiveTab('ai')}
+            accent="#FFE814"
+            icon={<Bot size={12} strokeWidth={3} />}
+            label="AI LOGS"
+          />
+        </div>
 
-          {/* ── CODE EXPLORER ───────────────────────────────────────────── */}
-          {activeTab === 'code' && (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* ── CODE EXPLORER ───────────────────────────────────────────── */}
+        {activeTab === 'code' && (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
-              {/* Section header */}
+            {/* Section header */}
+            <div
+              style={{
+                borderBottom: '2px solid #121212',
+                background: '#121212',
+              }}
+              className="shrink-0 px-3 py-1.5"
+            >
+              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#60EFFF]">
+                Project Files
+              </span>
+            </div>
+
+            {/* Split: file tree (fixed 180px) + editor (flex) */}
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              {/* File tree sidebar */}
               <div
                 style={{
-                  borderBottom: '2px solid #121212',
-                  background: '#121212',
+                  width: 180,
+                  minWidth: 180,
+                  borderRight: '2px solid #121212',
+                  background: '#F8F7F2',
+                  overflowY: 'auto',
                 }}
-                className="shrink-0 px-3 py-1.5"
               >
-                <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#60EFFF]">
-                  Project Files
-                </span>
+                <FileTree
+                  files={files}
+                  activeFileId={activeFileId}
+                  onSelectFile={(f) => setActiveFile(f.id)}
+                />
               </div>
 
-              {/* Split: file tree (fixed 180px) + editor (flex) */}
-              <div className="flex min-h-0 flex-1 overflow-hidden">
-                {/* File tree sidebar */}
-                <div
-                  style={{
-                    width: 180,
-                    minWidth: 180,
-                    borderRight: '2px solid #121212',
-                    background: '#F8F7F2',
-                    overflowY: 'auto',
-                  }}
-                >
-                  <FileTree
-                    files={files}
-                    activeFileId={activeFileId}
-                    onSelectFile={(f) => setActiveFile(f.id)}
-                  />
-                </div>
-
-                {/* Monaco editor */}
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  <CodeEditor roomId={roomId} passcode={passcode} />
-                </div>
+              {/* Monaco editor */}
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <CodeEditor roomId={roomId} passcode={passcode} />
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* ── AI LOGS ─────────────────────────────────────────────────── */}
-          {activeTab === 'ai' && (
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <AiChatDrawer roomId={roomId} passcode={passcode} />
-            </div>
-          )}
-        </div>
+        {/* ── AI LOGS ─────────────────────────────────────────────────── */}
+        {activeTab === 'ai' && (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <AiChatDrawer roomId={roomId} passcode={passcode} />
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

@@ -18,7 +18,6 @@ class Room(models.Model):
         editable=False
     )
     name = models.CharField(max_length=255, default="Untitled Workspace")
-    invite_code = models.CharField(max_length=16, unique=True, default=generate_code)
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name="owned_rooms"
     )

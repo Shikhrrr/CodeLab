@@ -1,3 +1,4 @@
+from networkx.algorithms.isomorphism import tree_isomorphism
 from apps.orchestrator.graph import app_graph
 import io
 import json
@@ -13,26 +14,46 @@ from django_ratelimit.decorators import ratelimit
 from django.utils import timezone
 from django.conf import settings 
 
+# pyrefly: ignore [missing-import]
 from apps.whiteboard.models import Room, CanvasState, ProjectFile, GenerationJob
+# pyrefly: ignore [missing-import]
 from apps.whiteboard.tasks import run_architecture_generation_task
 
 MAX_SIZE = 5 * 1024 * 1024      # 5 MB
 
 redis_client = redis.from_url(getattr(settings, "REDIS_URL"))
 
+
+@csrf_exempt
+def verify_room(request, room_id: str):
+    room = get_object_or_404(Room, id=room_id.strip().upper())
+
+    if not room:
+        return JsonResponse({"exists": False, "access": False})
+
+    if not room.passcode:
+        return JsonResponse({"exists": True, "access": True})
+
+    provided = request.headers.get("X-Room-Passcode")
+    has_access = bool(provided and check_password(provided, room.passcode))
+
+    return JsonResponse(
+        {"exists": True, "access": has_access}, status=200 if has_access else 403
+    )
+
 def verify_room_access(request, room: Room) -> bool:
     if not room.passcode:
         return True
-    provided_passcode = request.headers.get("X-room-passcode") or request.GET.get('passcode')
-    return provided_passcode and check_password(provided_passcode, room.passcode)
-
+    provided_passcode = request.headers.get("X-Room-Passcode")
+    return bool(provided_passcode and check_password(provided_passcode, room.passcode))
+    
 
 @csrf_exempt
 @require_http_methods(["POST"])
 @ratelimit(key='ip', rate='10/m', block=True)
 def create_room(request):
     if getattr(request, "limited", False):
-        return JsonResponse({"error": "Rate limit exceeded. Try again in a minute."}, status=429)
+        return JsonResponse({"error": "Rate limit exceeded."}, status=429)
 
     if len(request.body) > MAX_SIZE:
         return JsonResponse({"error": "Payload exceeds maximum allowed size."}, status=413)
@@ -51,7 +72,6 @@ def create_room(request):
 
     return JsonResponse({
         "room_id": str(room.id),
-        "invite_code": room.invite_code,
         "name": room.name,
         "is_locked": room.is_locked,
         "is_protected": bool(room.passcode),
@@ -60,13 +80,13 @@ def create_room(request):
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
-# @ratelimit(key="ip", rate="60/m", block=False)
 def get_or_update_canvas(request, room_id):
     if hasattr(request, "limited"):
-        return JsonResponse({"error": "Rate limit exceeded. Try again in a minute."}, status=429)
+        return JsonResponse({"error": "Rate limit exceeded."}, status=429)
     
     room = get_object_or_404(Room, id=room_id)
 
+    #fix
     if not verify_room_access(request, room):
         return JsonResponse({"error": "Unauthorized: Invalid or missing room passcode."}, status=401)
         
@@ -112,6 +132,7 @@ def trigger_generation(request, room_id):
             status=409,
         )
     
+    #fix 
     if not verify_room_access(request, room):
         return JsonResponse({"error": "Unauthorized: Invalid or missing room passcode."},
         status=401)

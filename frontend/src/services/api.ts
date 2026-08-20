@@ -24,10 +24,23 @@ function withPasscode(passcode?: string) {
 // ─── Room Endpoints ──────────────────────────────────────────────────────────
 
 export interface CreatedRoom {
-  id: string;
+  id?: string;
+  room_id: string;
   name: string;
   passcode?: string | null;
+  is_locked?: boolean;
+  is_protected?: boolean;
   created_at?: string;
+}
+
+export interface VerifyRoomResponse {
+  exists: boolean;
+  room_id?: string;
+  id?: string;
+  name?: string;
+  is_locked?: boolean;
+  is_protected?: boolean;
+  error?: string;
 }
 
 /**
@@ -35,10 +48,22 @@ export interface CreatedRoom {
  * Creates a new collaborative room. Returns the created room object.
  */
 export async function createRoom(
-  name: string,
+  name: string = 'New Workspace',
   passcode?: string,
 ): Promise<CreatedRoom> {
   const { data } = await apiClient.post<CreatedRoom>('/rooms/', { name, passcode }, withPasscode(passcode));
+  return data;
+}
+
+/**
+ * GET /rooms/verify/{room_id}/
+ * Checks if a room exists by room ID and returns metadata.
+ */
+export async function verifyRoom(
+  roomId: string,
+): Promise<VerifyRoomResponse> {
+  const cleanId = roomId.trim();
+  const { data } = await apiClient.get<VerifyRoomResponse>(`/rooms/verify/${encodeURIComponent(cleanId)}/`);
   return data;
 }
 
@@ -235,9 +260,9 @@ export async function getChatHistory(
 ): Promise<ChatMessage[]> {
   const { data } = await apiClient.get(`/rooms/${roomId}/chat/`, withPasscode(passcode));
   // Backend may return a plain array, DRF { results: [] }, or { messages: [] }
-  if (Array.isArray(data))                   return data;
-  if (data && Array.isArray(data.messages))  return data.messages as ChatMessage[];
-  if (data && Array.isArray(data.results))   return data.results  as ChatMessage[];
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.messages)) return data.messages as ChatMessage[];
+  if (data && Array.isArray(data.results)) return data.results as ChatMessage[];
   return [];
 }
 

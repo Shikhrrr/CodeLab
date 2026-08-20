@@ -2,6 +2,7 @@
 
 > Draw system architectures on a collaborative whiteboard and turn them directly into production-ready full-stack starter codebases.
 
+![CodeLab Workspace](docs/homepage.png)
 ![CodeLab Workspace](docs/screenshot.png)
 
 CodeLab is a real-time collaborative platform where developers can visually map out system designs—combining API gateways, web services, databases, caches, and queues—and scaffold complete multi-file project repositories with an integrated in-browser code editor and AI assistant.

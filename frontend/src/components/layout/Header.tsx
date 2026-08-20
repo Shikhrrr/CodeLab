@@ -10,6 +10,7 @@ import { downloadZip, triggerGeneration } from '../../services/api';
 interface HeaderProps {
   roomId: string;
   passcode?: string;
+  onHomeClick?: () => void;
 }
 
 // ─── Connection status pill ───────────────────────────────────────────────────
@@ -245,15 +246,15 @@ function ShareToast({ visible }: { visible: boolean }) {
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 
-export default function Header({ roomId, passcode }: HeaderProps) {
-  const roomName    = useRoomStore((s) => s.roomName);
+export default function Header({ roomId, passcode, onHomeClick }: HeaderProps) {
+  const roomName = useRoomStore((s) => s.roomName);
   const isConnected = useRoomStore((s) => s.isConnected);
   const isGenerating = useProjectStore((s) => s.isGenerating);
   const setGenerating = useProjectStore((s) => s.setIsGenerating);
-  const setJobId    = useProjectStore((s) => s.setCurrentJobId);
+  const setJobId = useProjectStore((s) => s.setCurrentJobId);
 
-  const [shareToast, setShareToast]   = useState(false);
-  const [exporting, setExporting]     = useState(false);
+  const [shareToast, setShareToast] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // ── Share ────────────────────────────────────────────────────────────────
   const handleShare = useCallback(async () => {
@@ -329,7 +330,10 @@ export default function Header({ roomId, passcode }: HeaderProps) {
         }}
       >
         {/* ── Brand badge ──────────────────────────────────────────────── */}
-        <div
+        <button
+          type="button"
+          onClick={onHomeClick}
+          title="Return to Home"
           style={{
             background: '#FFE814',
             border: '2px solid #121212',
@@ -344,11 +348,25 @@ export default function Header({ roomId, passcode }: HeaderProps) {
             color: '#121212',
             letterSpacing: '0.12em',
             flexShrink: 0,
+            cursor: onHomeClick ? 'pointer' : 'default',
+            transition: 'transform 0.08s, box-shadow 0.08s',
+          }}
+          onMouseEnter={(e) => {
+            if (!onHomeClick) return;
+            const el = e.currentTarget;
+            el.style.transform = 'translate(-1px,-1px)';
+            el.style.boxShadow = '4px 4px 0 #121212';
+          }}
+          onMouseLeave={(e) => {
+            if (!onHomeClick) return;
+            const el = e.currentTarget;
+            el.style.transform = 'none';
+            el.style.boxShadow = '3px 3px 0 #121212';
           }}
         >
           <Zap size={14} strokeWidth={3} />
           CODELAB
-        </div>
+        </button>
 
         {/* ── Room name ────────────────────────────────────────────────── */}
         <div

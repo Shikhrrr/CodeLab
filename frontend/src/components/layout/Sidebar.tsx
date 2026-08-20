@@ -17,13 +17,13 @@ import { NODE_ROLES, ROLE_ORDER, defaultTechForRole } from '../../config/nodeCon
 // ─── Role → icon map ──────────────────────────────────────────────────────────
 
 const ROLE_ICONS: Record<string, React.ElementType> = {
-  backend:  Server,
+  backend: Server,
   frontend: Monitor,
   database: Database,
-  cache:    Cpu,
-  queue:    Layers,
-  gateway:  Globe,
-  worker:   Wrench,
+  cache: Cpu,
+  queue: Layers,
+  gateway: Globe,
+  worker: Wrench,
 };
 
 // ─── Individual draggable card ────────────────────────────────────────────────
@@ -33,18 +33,18 @@ interface PaletteCardProps {
 }
 
 function PaletteCard({ role }: PaletteCardProps) {
-  const cfg  = NODE_ROLES[role];
+  const cfg = NODE_ROLES[role];
   if (!cfg) return null;
 
-  const Icon        = ROLE_ICONS[role] ?? Server;
+  const Icon = ROLE_ICONS[role] ?? Server;
   const defaultTech = defaultTechForRole(role);
 
   function handleDragStart(event: React.DragEvent<HTMLDivElement>) {
     event.dataTransfer.effectAllowed = 'move';
     const payload = JSON.stringify({
       role,
-      technology:  defaultTech.name,
-      port:        defaultTech.port,
+      technology: defaultTech.name,
+      port: defaultTech.port,
       description: '',
     });
     event.dataTransfer.setData('application/reactflow', payload);
@@ -115,8 +115,8 @@ function PaletteCard({ role }: PaletteCardProps) {
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 export default function Sidebar() {
-  const [collapsed,  setCollapsed]  = useState(false);
-  const [query,      setQuery]      = useState('');
+  const [collapsed, setCollapsed] = useState(false);
+  const [query, setQuery] = useState('');
 
   const filteredRoles = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -150,76 +150,76 @@ export default function Sidebar() {
           overflow: 'hidden',
         }}
       >
-          {/* Header */}
-          <div
-            style={{ borderBottom: '2px solid #121212', background: '#121212' }}
-            className="px-3 py-2.5"
-          >
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#FFE814]">
-              Architecture Blocks
+        {/* Header */}
+        <div
+          style={{ borderBottom: '2px solid #121212', background: '#121212' }}
+          className="px-3 py-2.5"
+        >
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#FFE814]">
+            Architecture Blocks
+          </p>
+          <p className="font-mono text-[9px] text-[#888] mt-0.5">
+            Drag onto canvas →
+          </p>
+        </div>
+
+        {/* Search */}
+        <div
+          style={{ borderBottom: '2px solid #121212', background: '#FFFFFF' }}
+          className="relative flex items-center"
+        >
+          <Search
+            size={11}
+            strokeWidth={2.5}
+            className="absolute left-2.5 text-[#888] pointer-events-none"
+          />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search tech… e.g. MySQL"
+            style={{
+              width: '100%',
+              padding: '6px 28px 6px 26px',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: 10,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              color: '#121212',
+            }}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="absolute right-2.5 text-[#888] hover:text-[#121212]"
+            >
+              <X size={11} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+
+        {/* Cards */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {filteredRoles.length === 0 ? (
+            <p className="font-mono text-[10px] text-[#999] text-center pt-4">
+              No blocks match "{query}"
             </p>
-            <p className="font-mono text-[9px] text-[#888] mt-0.5">
-              Drag onto canvas →
-            </p>
-          </div>
+          ) : (
+            filteredRoles.map((role) => (
+              <PaletteCard key={role} role={role} />
+            ))
+          )}
+        </div>
 
-          {/* Search */}
-          <div
-            style={{ borderBottom: '2px solid #121212', background: '#FFFFFF' }}
-            className="relative flex items-center"
-          >
-            <Search
-              size={11}
-              strokeWidth={2.5}
-              className="absolute left-2.5 text-[#888] pointer-events-none"
-            />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search tech… e.g. MySQL"
-              style={{
-                width: '100%',
-                padding: '6px 28px 6px 26px',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                fontSize: 10,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: '#121212',
-              }}
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                className="absolute right-2.5 text-[#888] hover:text-[#121212]"
-              >
-                <X size={11} strokeWidth={2.5} />
-              </button>
-            )}
-          </div>
-
-          {/* Cards */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            {filteredRoles.length === 0 ? (
-              <p className="font-mono text-[10px] text-[#999] text-center pt-4">
-                No blocks match "{query}"
-              </p>
-            ) : (
-              filteredRoles.map((role) => (
-                <PaletteCard key={role} role={role} />
-              ))
-            )}
-          </div>
-
-          {/* Footer */}
-          <div
-            style={{ borderTop: '2px solid #121212' }}
-            className="px-3 py-2 font-mono text-[9px] text-[#999] bg-[#F0EFE9]"
-          >
-            {filteredRoles.length}/{ROLE_ORDER.length} block types · drag to place
-          </div>
+        {/* Footer */}
+        <div
+          style={{ borderTop: '2px solid #121212' }}
+          className="px-3 py-2 font-mono text-[9px] text-[#999] bg-[#F0EFE9]"
+        >
+          {filteredRoles.length}/{ROLE_ORDER.length} block types · drag to place
+        </div>
       </div>
 
       {/* Toggle button */}

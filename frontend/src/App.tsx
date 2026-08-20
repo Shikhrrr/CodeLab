@@ -1,28 +1,49 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import useCanvasStore from './store/useCanvasStore';
 import useProjectStore from './store/useProjectStore';
 import useChatStore from './store/useChatStore';
 import useRoomStore from './store/useRoomStore';
-import { createRoom, getCanvasState, listProjectFiles, getChatHistory } from './services/api';
+import { getCanvasState, listProjectFiles, getChatHistory } from './services/api';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import WhiteboardCanvas from './components/canvas/WhiteboardCanvas';
 import RightDrawer from './components/layout/RightDrawer';
+import LandingPage from './components/landing/LandingPage';
 
-// ─── URL param helpers ──────────────────────────────────────────────────────────
+// ─── Route State & Parser ──────────────────────────────────────────────────────
 
-/** Reads ?room= or ?room_id= from the current URL without mutating it. */
-function readRoomFromUrl(): string {
-  const p = new URLSearchParams(window.location.search);
-  return p.get('room') ?? p.get('room_id') ?? '';
+interface RouteState {
+  view: 'landing' | 'room';
+  roomId: string | null;
+  passcode?: string;
 }
 
-/** Reads ?passcode= from the current URL. */
-function readPasscodeFromUrl(): string | undefined {
+/**
+ * Parses the current browser URL to determine if we should show the Landing Page
+ * or a specific collaborative Room workspace.
+ */
+function parseRouteFromLocation(): RouteState {
   const p = new URLSearchParams(window.location.search);
-  return p.get('passcode') ?? undefined;
-}
+  const passcode = p.get('passcode') ?? undefined;
 
+  // 1. Check path-based route: /room/:id
+  const pathname = window.location.pathname;
+  if (pathname.startsWith('/room/')) {
+    const rawId = pathname.replace(/^\/room\//, '').split('/')[0].trim();
+    if (rawId) {
+      return { view: 'room', roomId: rawId, passcode };
+    }
+  }
+
+  // 2. Check query-param route: ?room=... or ?room_id=...
+  const queryRoom = p.get('room') ?? p.get('room_id');
+  if (queryRoom && queryRoom.trim()) {
+    return { view: 'room', roomId: queryRoom.trim(), passcode };
+  }
+
+  // 3. Root path / without room params displays the Landing Page
+  return { view: 'landing', roomId: null, passcode };
+}
 
 // ─── Full-screen loading splash ───────────────────────────────────────────────
 
@@ -30,7 +51,7 @@ function LoadingSplash() {
   return (
     <div
       style={{ background: '#FAF9F5' }}
-      className="flex h-screen w-screen flex-col items-center justify-center gap-4"
+      className="flex h-screen w-screen flex-col items-center justify-center gap-4 font-mono"
     >
       <div
         style={{
@@ -38,7 +59,6 @@ function LoadingSplash() {
           border: '3px solid #121212',
           boxShadow: '6px 6px 0 #121212',
           padding: '12px 24px',
-          fontFamily: 'monospace',
           fontSize: 18,
           fontWeight: 900,
           color: '#121212',
@@ -48,8 +68,8 @@ function LoadingSplash() {
       >
         ⚡ CODELAB
       </div>
-      <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-[#999]">
-        Loading workspace…
+      <p className="text-[11px] font-bold uppercase tracking-widest text-[#666]">
+        Hydrating workspace…
       </p>
       <style>{`
         @keyframes loading-pulse {
@@ -63,11 +83,19 @@ function LoadingSplash() {
 
 // ─── Error screen ─────────────────────────────────────────────────────────────
 
-function ErrorScreen({ message }: { message: string }) {
+function ErrorScreen({
+  message,
+  onRetry,
+  onGoHome,
+}: {
+  message: string;
+  onRetry: () => void;
+  onGoHome: () => void;
+}) {
   return (
     <div
       style={{ background: '#FAF9F5' }}
-      className="flex h-screen w-screen items-center justify-center p-8"
+      className="flex h-screen w-screen items-center justify-center p-8 font-mono"
     >
       <div
         style={{
@@ -80,18 +108,34 @@ function ErrorScreen({ message }: { message: string }) {
       >
         <div
           style={{ background: '#FF6B6B', borderBottom: '2px solid #121212' }}
-          className="px-4 py-2 font-mono text-[12px] font-black uppercase tracking-wider text-white"
+          className="px-4 py-2 text-[12px] font-black uppercase tracking-wider text-white"
         >
           ✗ Failed to load workspace
         </div>
-        <div className="p-4 font-mono text-[11px] text-[#c0392b]">{message}</div>
-        <div className="border-t-2 border-[#FF6B6B] p-3">
+        <div className="p-4 text-[11px] text-[#c0392b] font-bold">{message}</div>
+        <div className="border-t-2 border-[#FF6B6B] p-3 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={onRetry}
             className="neo-btn text-[10px]"
           >
             Retry
+          </button>
+          <button
+            type="button"
+            onClick={onGoHome}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#FFFFFF',
+              fontWeight: 800,
+              color: '#121212',
+              border: '2px solid #121212',
+              boxShadow: '2px 2px 0 #121212',
+              cursor: 'pointer',
+              fontSize: '10px',
+            }}
+          >
+            Return to Home
           </button>
         </div>
       </div>
@@ -99,15 +143,12 @@ function ErrorScreen({ message }: { message: string }) {
   );
 }
 
-// ─── App ───────────────────────────────────────────────────────────────────
+// ─── App Component ─────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [loading, setLoading] = useState(true);
+  const [route, setRoute]     = useState<RouteState>(parseRouteFromLocation);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError]     = useState<string | null>(null);
-
-  // roomId starts null; set after bootstrap so the render tree never sees a stale ID.
-  const [roomId, setRoomId]   = useState<string | null>(null);
-  const [passcode]            = useState<string | undefined>(readPasscodeFromUrl);
 
   // Store actions
   const setRoomData  = useRoomStore((s) => s.setRoomData);
@@ -116,55 +157,101 @@ export default function App() {
   const setFiles     = useProjectStore((s) => s.setFiles);
   const setMessages  = useChatStore((s) => s.setMessages);
 
-  // ── Bootstrap + hydration ───────────────────────────────────────────────
+  // ── Navigation callbacks ───────────────────────────────────────────────────
+
+  const handleNavigateToRoom = useCallback((targetRoomId: string, passcode?: string) => {
+    const cleanId = targetRoomId.trim();
+    const url = passcode
+      ? `/room/${cleanId}?passcode=${encodeURIComponent(passcode)}`
+      : `/room/${cleanId}`;
+    window.history.pushState({}, '', url);
+    setRoute({ view: 'room', roomId: cleanId, passcode });
+  }, []);
+
+  const handleNavigateToHome = useCallback(() => {
+    window.history.pushState({}, '', '/');
+    setRoute({ view: 'landing', roomId: null, passcode: undefined });
+  }, []);
+
+  // ── Listen to Browser Back / Forward navigation ────────────────────────────
   useEffect(() => {
-    async function bootstrap() {
+    function handlePopState() {
+      setRoute(parseRouteFromLocation());
+    }
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // ── Room Hydration Lifecycle ───────────────────────────────────────────────
+  useEffect(() => {
+    if (route.view !== 'room' || !route.roomId) {
+      setLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+
+    async function hydrateRoom(targetId: string, passcode?: string) {
+      setLoading(true);
+      setError(null);
+
       try {
-        let resolvedId = readRoomFromUrl();
-        let resolvedName: string;
+        const resolvedName =
+          new URLSearchParams(window.location.search).get('name') ?? targetId;
 
-        if (resolvedId) {
-          // ─ Case A: room ID already in URL ─ use it as-is
-          resolvedName = new URLSearchParams(window.location.search).get('name') ?? resolvedId;
-        } else {
-          // ─ Case B: no room ID ─ ask the backend to create one
-          const room = await createRoom('Studio', passcode);
-          resolvedId   = room.id;
-          resolvedName = room.name;
-          // Persist into the address bar so the tab URL is shareable immediately
-          window.history.replaceState({}, '', `?room=${resolvedId}`);
-        }
-
-        // Commit to store + local state
-        setRoomData({ roomId: resolvedId, roomName: resolvedName, passcode });
-        setRoomId(resolvedId);
+        // Commit to store
+        setRoomData({ roomId: targetId, roomName: resolvedName, passcode });
 
         // Hydrate canvas, files, chat in parallel
-        // Each fetch falls back silently so a 404 on a brand-new room doesn't block the UI
         const [canvas, files, history] = await Promise.all([
-          getCanvasState(resolvedId, passcode).catch(() => ({ nodes: [], edges: [] })),
-          listProjectFiles(resolvedId, passcode).catch(() => []),
-          getChatHistory(resolvedId, passcode).catch(() => []),
+          getCanvasState(targetId, passcode).catch(() => ({ nodes: [], edges: [] })),
+          listProjectFiles(targetId, passcode).catch(() => []),
+          getChatHistory(targetId, passcode).catch(() => []),
         ]);
+
+        if (isCancelled) return;
 
         setNodes(canvas.nodes ?? []);
         setEdges(canvas.edges ?? []);
         setFiles(files);
         setMessages(history);
       } catch (err: unknown) {
+        if (isCancelled) return;
+        console.error('Failed to hydrate room:', err);
         const msg = err instanceof Error ? err.message : String(err);
         setError(`Failed to initialise workspace: ${msg}`);
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     }
 
-    void bootstrap();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void hydrateRoom(route.roomId, route.passcode);
 
+    return () => {
+      isCancelled = true;
+    };
+  }, [route.view, route.roomId, route.passcode, setRoomData, setNodes, setEdges, setFiles, setMessages]);
+
+  // ── Route View: Landing Page (root /) ──────────────────────────────────────
+  if (route.view === 'landing') {
+    return <LandingPage onNavigateToRoom={handleNavigateToRoom} />;
+  }
+
+  // ── Route View: Collaborative Whiteboard Studio (/room/:id) ────────────────
   if (loading) return <LoadingSplash />;
-  if (error)   return <ErrorScreen message={error} />;
+  if (error) {
+    return (
+      <ErrorScreen
+        message={error}
+        onRetry={() => {
+          if (route.roomId) {
+            setRoute({ ...route });
+          }
+        }}
+        onGoHome={handleNavigateToHome}
+      />
+    );
+  }
 
   return (
     /*
@@ -176,7 +263,11 @@ export default function App() {
     <div
       style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
     >
-      <Header roomId={roomId!} passcode={passcode} />
+      <Header
+        roomId={route.roomId!}
+        passcode={route.passcode}
+        onHomeClick={handleNavigateToHome}
+      />
 
       <main
         style={{
@@ -187,8 +278,8 @@ export default function App() {
         }}
       >
         <Sidebar />
-        <WhiteboardCanvas roomId={roomId!} passcode={passcode} />
-        <RightDrawer roomId={roomId!} passcode={passcode} />
+        <WhiteboardCanvas roomId={route.roomId!} passcode={route.passcode} />
+        <RightDrawer roomId={route.roomId!} passcode={route.passcode} />
       </main>
     </div>
   );

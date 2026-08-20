@@ -16,8 +16,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { CustomNodeData } from '../../types';
-import { NODE_ROLES } from '../../config/nodeConfig';
-
 
 // ─── Per-type design tokens ───────────────────────────────────────────────────
 
@@ -30,14 +28,14 @@ interface NodeConfig {
 
 // Derived from NODE_ROLES — keeps colours consistent across Sidebar and canvas.
 const NODE_CONFIG: Record<string, NodeConfig> = {
-  service:  { bg: '#FFE814', accent: '#d4be00', Icon: Server,   label: 'Service'  },
-  backend:  { bg: '#FFE814', accent: '#d4be00', Icon: Server,   label: 'Service'  },
+  service: { bg: '#FFE814', accent: '#d4be00', Icon: Server, label: 'Service' },
+  backend: { bg: '#FFE814', accent: '#d4be00', Icon: Server, label: 'Service' },
   database: { bg: '#60EFFF', accent: '#00c8e0', Icon: Database, label: 'Database' },
-  cache:    { bg: '#FF69B4', accent: '#d94090', Icon: Cpu,      label: 'Cache'    },
-  queue:    { bg: '#00F59B', accent: '#00c278', Icon: Layers,   label: 'Queue'    },
-  gateway:  { bg: '#FF8C42', accent: '#d96320', Icon: Globe,    label: 'Gateway'  },
-  worker:   { bg: '#C084FC', accent: '#9333ea', Icon: Wrench,   label: 'Worker'   },
-  frontend: { bg: '#FCA5A5', accent: '#dc2626', Icon: Monitor,  label: 'Frontend' },
+  cache: { bg: '#FF69B4', accent: '#d94090', Icon: Cpu, label: 'Cache' },
+  queue: { bg: '#00F59B', accent: '#00c278', Icon: Layers, label: 'Queue' },
+  gateway: { bg: '#FF8C42', accent: '#d96320', Icon: Globe, label: 'Gateway' },
+  worker: { bg: '#C084FC', accent: '#9333ea', Icon: Wrench, label: 'Worker' },
+  frontend: { bg: '#FCA5A5', accent: '#dc2626', Icon: Monitor, label: 'Frontend' },
 };
 
 // ─── Custom Handle ────────────────────────────────────────────────────────────
