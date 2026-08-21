@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 
 def generate_code():
     # 8 digit code
-    return secrets.token_hex(4)
+    return secrets.token_hex(4).upper()
 
 class Room(models.Model):
     id = models.CharField(

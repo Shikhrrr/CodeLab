@@ -40,6 +40,7 @@ export interface VerifyRoomResponse {
   name?: string;
   is_locked?: boolean;
   is_protected?: boolean;
+  access?: boolean;
   error?: string;
 }
 
@@ -61,9 +62,13 @@ export async function createRoom(
  */
 export async function verifyRoom(
   roomId: string,
+  passcode?: string,
 ): Promise<VerifyRoomResponse> {
   const cleanId = roomId.trim();
-  const { data } = await apiClient.get<VerifyRoomResponse>(`/rooms/verify/${encodeURIComponent(cleanId)}/`);
+  const { data } = await apiClient.get<VerifyRoomResponse>(
+    `/rooms/verify/${encodeURIComponent(cleanId)}/`,
+    withPasscode(passcode),
+  );
   return data;
 }
 
@@ -251,19 +256,91 @@ export async function downloadZip(roomId: string, passcode?: string): Promise<vo
 // ─── Chat Endpoint ───────────────────────────────────────────────────────────
 
 /**
- * GET /rooms/{roomId}/chat/
+ * GET /rooms/{roomId}/chat/history/
  * Retrieves the persisted chat history for a room.
  */
 export async function getChatHistory(
   roomId: string,
   passcode?: string,
 ): Promise<ChatMessage[]> {
-  const { data } = await apiClient.get(`/rooms/${roomId}/chat/`, withPasscode(passcode));
-  // Backend may return a plain array, DRF { results: [] }, or { messages: [] }
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.messages)) return data.messages as ChatMessage[];
-  if (data && Array.isArray(data.results)) return data.results as ChatMessage[];
-  return [];
+  const cleanId = roomId.trim();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let responseData: any = null;
+
+  // Try /rooms/{roomId}/chat/history/ first, then fall back to /rooms/{roomId}/chat/
+  try {
+    const { data } = await apiClient.get(
+      `/rooms/${cleanId}/chat/history/`,
+      withPasscode(passcode),
+    );
+    responseData = data;
+  } catch {
+    try {
+      const { data } = await apiClient.get(
+        `/rooms/${cleanId}/chat/`,
+        withPasscode(passcode),
+      );
+      responseData = data;
+    } catch {
+      try {
+        const { data } = await apiClient.get(
+          `/rooms/${cleanId}/history/`,
+          withPasscode(passcode),
+        );
+        responseData = data;
+      } catch (err) {
+        console.error('[API] Failed to fetch chat history:', err);
+        return [];
+      }
+    }
+  }
+
+  if (!responseData) return [];
+
+  // Extract array from response envelope ({ history: [] }, { messages: [] }, { results: [] }, or plain array)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawList: any[] = Array.isArray(responseData)
+    ? responseData
+    : responseData.history ||
+      responseData.messages ||
+      responseData.results ||
+      responseData.chat ||
+      [];
+
+  if (!Array.isArray(rawList)) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rawList.map((m: any, idx: number) => {
+    const rawRole = (m.role || m.type || 'user').toLowerCase();
+    const role: 'user' | 'assistant' | 'system' =
+      rawRole === 'ai' || rawRole === 'assistant'
+        ? 'assistant'
+        : rawRole === 'system'
+        ? 'system'
+        : 'user';
+
+    let contentStr = '';
+    if (typeof m.content === 'string') {
+      contentStr = m.content;
+    } else if (Array.isArray(m.content)) {
+      contentStr = m.content
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((part: any) => (typeof part === 'string' ? part : part?.text || ''))
+        .join('');
+    } else if (m.content) {
+      contentStr = String(m.content);
+    }
+
+    return {
+      id: m.id || `msg-${idx}-${Date.now()}`,
+      role,
+      content: contentStr,
+      sender:
+        m.sender ||
+        (role === 'assistant' ? 'CodeLab AI' : role === 'user' ? 'YOU' : 'SYSTEM'),
+      timestamp: m.timestamp || m.created_at || new Date().toISOString(),
+    };
+  });
 }
 
 // ─── Default Export ──────────────────────────────────────────────────────────

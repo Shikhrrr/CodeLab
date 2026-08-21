@@ -1,50 +1,27 @@
-from apps.orchestrator.schemas import OrchestratorState
-from apps.orchestrator.llm import get_llm 
 from langgraph.prebuilt import create_react_agent
-from apps.orchestrator.tools import create_workspace_tools
-from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
+from apps.orchestrator.llm import get_llm 
+from apps.orchestrator.tools import TOOLS
+from apps.orchestrator.schemas import OrchestratorState
 
+system_prompt = (
+    "You are CodeLab's autonomous Full-Stack Editor & Refactoring Agent.\n"
+    "You have tools to list files, read their full content, create/update files, and delete files.\n\n"
+    "Workflow:\n"
+    "1. Check the file list with `list_files` or inspect existing files with `read_file` if you need context.\n"
+    "2. Make all necessary changes across all affected files using `write_file` and `delete_file`.\n"
+    "3. Once all tools have run and all files are patched, provide a clear, concise summary message "
+    "explaining exactly what changes were made."
+)
 
-CODING_AGENT_SYSTEM_PROMPT = """You are an expert full-stack engineer and in-editor AI coding assistant.
-You have direct access to tools for managing project files:
-- `list_files`: Check current files in the project.
-- `read_file`: Inspect contents before making changes.
-- `write_file`: Create new files or overwrite existing files with full updated code.
-- `delete_file`: Remove obsolete, unused, or deleted files.
+editor_subgraph = create_react_agent(
+    model=get_llm(),
+    tools=TOOLS,
+    prompt=system_prompt,
+)
 
-Rules:
-1. Always read a file before modifying it if you need its existing context.
-2. When creating or updating files, write complete, production-ready code. Never leave placeholders like '// same as before'.
-3. Delete files if the user's request makes them redundant (e.g., refactoring or changing tech stack).
-4. Provide a clear, concise final summary of what you did for the user.
-"""
-
-def coding_agent(state: OrchestratorState):
-    llm = get_llm() 
-    room_id = state['room_id']
-    tools = create_workspace_tools(room_id=room_id)
-
-    agent_executor = create_react_agent(llm, tools) 
-    
-    messages = [SystemMessage(content=CODING_AGENT_SYSTEM_PROMPT)]
-
-    # state is yet to be updated with chat history
-    for msg in state.get("chat_history", []):
-        if msg["role"] == "user":
-            messages.append(HumanMessage(content=msg["content"]))
-        elif msg["role"] == "assistant":
-            messages.append(AIMessage(content=msg["content"]))
-
-    user_prompt = state["user_prompt"]
-    if state.get("active_file_path"):
-        user_prompt = f"[Active File in Editor: {state['active_file_path']}]\n\n{user_prompt}"
-
-    messages.append(HumanMessage(content=user_prompt))
-
-    response = agent_executor.invoke({"messages": messages})
-    last_message = response["messages"][-1].content
-
-    return {
-        "assistant_response": last_message,
-        "error": None,
-    }
+def editor_node(state: OrchestratorState, config=None) -> dict:
+    result = editor_subgraph.invoke(
+        {"messages": state.get("messages", [])}, 
+        config=config
+    )
+    return {"messages": result.get("messages", [])}

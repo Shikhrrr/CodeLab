@@ -191,19 +191,26 @@ export default function LandingPage({ onNavigateToRoom }: LandingPageProps) {
     setJoinError(null);
 
     try {
-      const res = await verifyRoom(code);
+      const passcode = joinPasscodeInput.trim() || undefined;
+      const res = await verifyRoom(code, passcode);
       if (res && res.exists) {
         if (res.is_locked) {
           setJoinError('This workspace is locked and cannot be joined.');
           return;
         }
-        if (res.is_protected && !joinPasscodeInput.trim()) {
-          setIsJoinProtected(true);
-          setJoinError('This workspace is passcode-protected. Please enter the passcode below.');
-          return;
+        if (res.is_protected) {
+          if (!passcode) {
+            setIsJoinProtected(true);
+            setJoinError('This workspace is passcode-protected. Please enter the room passcode below.');
+            return;
+          }
+          if (res.access === false) {
+            setIsJoinProtected(true);
+            setJoinError('Incorrect room passcode. Please check and try again.');
+            return;
+          }
         }
         const targetId = res.room_id || res.id || code;
-        const passcode = joinPasscodeInput.trim() || undefined;
         setIsJoinModalOpen(false);
         onNavigateToRoom(targetId, passcode);
       } else {
@@ -909,27 +916,30 @@ export default function LandingPage({ onNavigateToRoom }: LandingPageProps) {
                 </p>
               </div>
 
-              {/* Passcode input field if room is protected */}
-              {(isJoinProtected || joinPasscodeInput) && (
-                <div className="space-y-2 pt-1 animate-fadeIn">
-                  <label className="block text-xs font-black uppercase tracking-wider text-[#121212] flex items-center gap-1.5">
+              {/* Passcode input field */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-black uppercase tracking-wider text-[#121212] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
                     <Key size={14} />
                     <span>ROOM PASSCODE:</span>
-                  </label>
-                  <input
-                    type="password"
-                    autoFocus={isJoinProtected}
-                    required={isJoinProtected}
-                    placeholder="Enter workspace passcode"
-                    value={joinPasscodeInput}
-                    onChange={(e) => {
-                      setJoinPasscodeInput(e.target.value);
-                      if (joinError) setJoinError(null);
-                    }}
-                    className="w-full bg-[#FFFFFF] border-3 border-black p-3.5 font-mono text-base font-bold text-[#121212] outline-none shadow-[4px_4px_0px_0px_#121212] focus:border-black focus:bg-[#FFFDE0]"
-                  />
-                </div>
-              )}
+                  </span>
+                  <span className="text-[10px] font-bold text-[#888]">
+                    {isJoinProtected ? '(REQUIRED)' : '(OPTIONAL)'}
+                  </span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="Enter passcode if workspace is protected"
+                  value={joinPasscodeInput}
+                  onChange={(e) => {
+                    setJoinPasscodeInput(e.target.value);
+                    if (joinError) setJoinError(null);
+                  }}
+                  className={`w-full bg-[#FFFFFF] border-3 border-black p-3.5 font-mono text-sm font-bold text-[#121212] outline-none shadow-[4px_4px_0px_0px_#121212] focus:border-black focus:bg-[#FFFDE0] ${
+                    isJoinProtected ? 'border-[#FF6B6B] bg-[#FFF5F5]' : ''
+                  }`}
+                />
+              </div>
 
               {/* Error Message */}
               {joinError && (

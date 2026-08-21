@@ -9,6 +9,7 @@ interface RoomState {
   passcode: string | null;
   isConnected: boolean;
   activeUsers: Collaborator[];
+  sendWS: ((payload: object) => boolean) | null;
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -20,6 +21,7 @@ interface RoomActions {
   addActiveUser(user: Collaborator): void;
   /** Removes a collaborator by their WebSocket channel identifier. */
   removeActiveUser(channel: string): void;
+  setSendWS(fn: ((payload: object) => boolean) | null): void;
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -31,6 +33,7 @@ const useRoomStore = create<RoomState & RoomActions>()((set) => ({
   passcode: null,
   isConnected: false,
   activeUsers: [],
+  sendWS: null,
 
   // Actions
   setRoomData: ({ roomId, roomName, passcode }) =>
@@ -52,6 +55,8 @@ const useRoomStore = create<RoomState & RoomActions>()((set) => ({
     set((state) => ({
       activeUsers: state.activeUsers.filter((u) => u.channel !== channel),
     })),
+
+  setSendWS: (fn) => set({ sendWS: fn }),
 }));
 
 export default useRoomStore;

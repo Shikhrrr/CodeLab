@@ -35,38 +35,9 @@ export interface CanvasState {
   version?: number;
 }
 
-// ─── Project Files ───────────────────────────────────────────────────────────
+// ─── Re-export Workspace Types ───────────────────────────────────────────────
 
-export interface ProjectFile {
-  id: string;
-  path: string;
-  content: string;
-  description?: string;
-  updated_at: string;
-}
-
-// ─── AI Generation ───────────────────────────────────────────────────────────
-
-export type GenerationStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-
-export interface GenerationJob {
-  id: string;
-  room_id: string;
-  status: GenerationStatus;
-  error_message?: string;
-  assistant_response?: string;
-}
-
-// ─── Chat ────────────────────────────────────────────────────────────────────
-
-export type MessageRole = 'user' | 'assistant' | 'system';
-
-export interface ChatMessage {
-  id: string;
-  role: MessageRole;
-  content: string;
-  timestamp: string;
-}
+export * from './workspace';
 
 // ─── Collaboration ───────────────────────────────────────────────────────────
 

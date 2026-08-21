@@ -1,14 +1,96 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Lock, Key, AlertTriangle } from 'lucide-react';
 import useCanvasStore from './store/useCanvasStore';
 import useProjectStore from './store/useProjectStore';
 import useChatStore from './store/useChatStore';
 import useRoomStore from './store/useRoomStore';
-import { getCanvasState, listProjectFiles, getChatHistory } from './services/api';
+import { getCanvasState, listProjectFiles, getChatHistory, verifyRoom } from './services/api';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import WhiteboardCanvas from './components/canvas/WhiteboardCanvas';
 import RightDrawer from './components/layout/RightDrawer';
 import LandingPage from './components/landing/LandingPage';
+
+// ─── Passcode Prompt Modal ─────────────────────────────────────────────────────
+
+function PasscodePromptModal({
+  roomId,
+  onSubmit,
+  onCancel,
+  errorMessage,
+}: {
+  roomId: string;
+  onSubmit: (passcode: string) => void;
+  onCancel: () => void;
+  errorMessage?: string | null;
+}) {
+  const [passcode, setPasscode] = useState('');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs font-mono">
+      <div className="w-full max-w-md bg-[#FFFDF0] border-4 border-black shadow-[10px_10px_0px_0px_#121212] overflow-hidden">
+        <div className="bg-[#FFE814] border-b-4 border-black px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Lock size={18} strokeWidth={3} />
+            <span className="font-black text-sm uppercase tracking-wider">WORKSPACE PROTECTED</span>
+          </div>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (passcode.trim()) onSubmit(passcode.trim());
+          }}
+          className="p-6 space-y-5"
+        >
+          <p className="text-xs font-bold text-[#444] leading-relaxed">
+            Workspace <span className="font-black text-[#121212] bg-[#FFDE59] px-1.5 py-0.5 border border-black">{roomId}</span> is protected. Enter passcode to join.
+          </p>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-black uppercase tracking-wider text-[#121212] flex items-center gap-1.5">
+              <Key size={14} />
+              <span>ROOM PASSCODE:</span>
+            </label>
+            <input
+              type="password"
+              autoFocus
+              required
+              placeholder="Enter room passcode"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              className="w-full bg-[#FFFFFF] border-3 border-black p-3.5 font-mono text-base font-bold text-[#121212] outline-none shadow-[4px_4px_0px_0px_#121212] focus:border-black focus:bg-[#FFFDE0]"
+            />
+          </div>
+
+          {errorMessage && (
+            <div className="bg-[#FF6B6B] border-3 border-black p-3 text-white font-bold text-xs shadow-[3px_3px_0px_0px_#121212] flex items-center gap-2">
+              <AlertTriangle size={16} strokeWidth={3} className="shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="bg-white border-3 border-black px-4 py-2.5 text-xs font-black uppercase shadow-[3px_3px_0px_0px_#121212] hover:bg-[#FAF9F5] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+            >
+              RETURN HOME
+            </button>
+            <button
+              type="submit"
+              disabled={!passcode.trim()}
+              className="bg-[#A6FF00] border-3 border-black px-6 py-2.5 text-xs font-black uppercase shadow-[3px_3px_0px_0px_#121212] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
+            >
+              UNLOCK
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 // ─── Route State & Parser ──────────────────────────────────────────────────────
 
@@ -150,6 +232,9 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError]     = useState<string | null>(null);
 
+  const [passcodePromptRequired, setPasscodePromptRequired] = useState<boolean>(false);
+  const [passcodeError, setPasscodeError] = useState<string | null>(null);
+
   // Store actions
   const setRoomData  = useRoomStore((s) => s.setRoomData);
   const setNodes     = useCanvasStore((s) => s.setNodes);
@@ -165,11 +250,15 @@ export default function App() {
       ? `/room/${cleanId}?passcode=${encodeURIComponent(passcode)}`
       : `/room/${cleanId}`;
     window.history.pushState({}, '', url);
+    setPasscodePromptRequired(false);
+    setPasscodeError(null);
     setRoute({ view: 'room', roomId: cleanId, passcode });
   }, []);
 
   const handleNavigateToHome = useCallback(() => {
     window.history.pushState({}, '', '/');
+    setPasscodePromptRequired(false);
+    setPasscodeError(null);
     setRoute({ view: 'landing', roomId: null, passcode: undefined });
   }, []);
 
@@ -198,6 +287,28 @@ export default function App() {
       try {
         const resolvedName =
           new URLSearchParams(window.location.search).get('name') ?? targetId;
+
+        // Verify room access permissions first
+        const v = await verifyRoom(targetId, passcode).catch(() => null);
+        if (isCancelled) return;
+
+        if (v && v.exists) {
+          if (v.is_locked) {
+            setError('This workspace is locked and cannot be accessed.');
+            setLoading(false);
+            return;
+          }
+          if (v.is_protected && (v.access === false || (!passcode && v.is_protected))) {
+            setPasscodePromptRequired(true);
+            if (passcode && v.access === false) {
+              setPasscodeError('Incorrect passcode. Please try again.');
+            } else {
+              setPasscodeError(null);
+            }
+            setLoading(false);
+            return;
+          }
+        }
 
         // Commit to store
         setRoomData({ roomId: targetId, roomName: resolvedName, passcode });
@@ -235,6 +346,18 @@ export default function App() {
   // ── Route View: Landing Page (root /) ──────────────────────────────────────
   if (route.view === 'landing') {
     return <LandingPage onNavigateToRoom={handleNavigateToRoom} />;
+  }
+
+  // ── Passcode Required Prompt Modal ───────────────────────────────────────
+  if (passcodePromptRequired && route.roomId) {
+    return (
+      <PasscodePromptModal
+        roomId={route.roomId}
+        errorMessage={passcodeError}
+        onSubmit={(passcode) => handleNavigateToRoom(route.roomId!, passcode)}
+        onCancel={handleNavigateToHome}
+      />
+    );
   }
 
   // ── Route View: Collaborative Whiteboard Studio (/room/:id) ────────────────

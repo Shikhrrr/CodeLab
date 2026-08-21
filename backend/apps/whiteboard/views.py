@@ -26,7 +26,7 @@ redis_client = redis.from_url(getattr(settings, "REDIS_URL"))
 
 @csrf_exempt
 def verify_room(request, room_id: str):
-    room = get_object_or_404(Room, id=room_id.strip().upper())
+    room = get_object_or_404(Room, id=room_id.strip().lower())
 
     if not room:
         return JsonResponse({"exists": False, "access": False})

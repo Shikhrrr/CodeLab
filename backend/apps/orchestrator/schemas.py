@@ -1,8 +1,10 @@
 from typing import Optional
 import operator
-from typing import TypedDict, Dict, Literal, Annotated, List 
+from typing import TypedDict, Dict, Literal, Annotated, List, Sequence, Any
 # pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field 
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 # FRONTEND TO LLM -----------------
 
@@ -57,6 +59,39 @@ class ScaffoldingPlan(BaseModel):
     services: List[str]
     file_manifest: List[str] # exact file paths 
 
+class IntentDecision(BaseModel):
+    mode: Literal["SCAFFOLD", "EDIT", "EXPLAIN"] = Field(
+        description=(
+            "'SCAFFOLD' to generate the initial project from canvas topology, "
+            "'EDIT' to create, edit, patch, fix, or modify one or multiple files, "
+            "'EXPLAIN' to answer questions, explain code, or give advice without modifying code."
+        )
+    )
+
+class FilePatch(BaseModel):
+    path: str = Field(
+        description="Full path of the file to create, modify, or delete."
+    )
+    action: Literal["CREATE", "MODIFY", "DELETE"] = Field(
+        description="Action to perform on the target file."
+    )
+    content: str = Field(
+        default="",
+        description="The complete new or updated file content. Empty if action is DELETE.",
+    )
+    reason: str = Field(
+        description="Short reason why this specific file is being changed."
+    )
+
+class MultiFileEditResult(BaseModel):
+    files: List[FilePatch] = Field(
+        description="List of all files that need to be created, modified, or deleted to fulfill the user's request."
+    )
+    explanation: str = Field(
+        description="Direct conversational message to the user explaining what changes were made across the files and answering their prompt."
+    )
+
+
 # State
 
 class OrchestratorState(TypedDict):
@@ -72,3 +107,7 @@ class OrchestratorState(TypedDict):
     generated_files: List[GeneratedFile]
     status: Optional[str] 
     error: Optional[str]
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+
+    nodes: Optional[List[Any]]
+    edges: Optional[List[Any]]

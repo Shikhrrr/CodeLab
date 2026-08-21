@@ -30,6 +30,16 @@ interface MsgGenCompleted {
   job_id?: string;
   assistant_response?: string;
 }
+interface MsgChatMessage {
+  type: 'chat_message';
+  sender?: string;
+  role?: 'user' | 'assistant';
+  content?: string;
+  timestamp?: string;
+}
+interface MsgFilesUpdated {
+  type: 'files_updated';
+}
 
 type InboundMessage =
   | MsgUserJoined
@@ -39,7 +49,9 @@ type InboundMessage =
   | MsgNodeDeleted
   | MsgEdgeAdded
   | MsgEdgeDeleted
-  | MsgGenCompleted;
+  | MsgGenCompleted
+  | MsgChatMessage
+  | MsgFilesUpdated;
 
 // ─── Hook return type ─────────────────────────────────────────────────────────
 
@@ -83,11 +95,13 @@ export function useWhiteboardSync(roomId: string, passcode?: string): Whiteboard
   const intentionalClose  = useRef(false);
 
   // ── Safe send helper ─────────────────────────────────────────────────────
-  const safeSend = useCallback((payload: object) => {
+  const safeSend = useCallback((payload: object): boolean => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(payload));
+      return true;
     }
+    return false;
   }, []);
 
   // ── Debounced canvas snapshot ─────────────────────────────────────────────
@@ -160,10 +174,38 @@ export function useWhiteboardSync(roomId: string, passcode?: string): Whiteboard
           canvasSetEdges((edges) => edges.filter((e) => e.id !== msg.edgeId));
           break;
 
-        // ── AI generation lifecycle ───────────────────────────────────────
+        // ── AI & Chat Broadcasts ──────────────────────────────────────────
+        case 'chat_message': {
+          const role = (msg as { role?: 'user' | 'assistant' }).role ||
+            ((msg as { sender?: string }).sender === 'CodeLab AI' ? 'assistant' : 'user');
+          const content = (msg as { content?: string }).content || '';
+          const sender = (msg as { sender?: string }).sender;
+          chatAddMessage({
+            id: crypto.randomUUID(),
+            role,
+            content,
+            sender,
+            timestamp: new Date().toISOString(),
+          });
+          if (role === 'assistant') {
+            useChatStore.getState().setIsStreaming(false);
+          }
+          break;
+        }
+
+        case 'files_updated': {
+          try {
+            const files = await listProjectFiles(roomId, passcode);
+            projectSetFiles(files);
+          } catch (err) {
+            console.error('[WS] Failed to refetch files on files_updated:', err);
+          }
+          break;
+        }
+
         case 'generation_completed': {
           projectSetGenerating(false);
-          if (msg.job_id) projectSetJobId(msg.job_id);
+          if ((msg as MsgGenCompleted).job_id) projectSetJobId((msg as MsgGenCompleted).job_id!);
 
           // Fetch fresh files from the backend
           try {
@@ -174,11 +216,11 @@ export function useWhiteboardSync(roomId: string, passcode?: string): Whiteboard
           }
 
           // Surface the assistant reply in the chat panel
-          if (msg.assistant_response) {
+          if ((msg as MsgGenCompleted).assistant_response) {
             const completionMsg: ChatMessage = {
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: msg.assistant_response,
+              content: (msg as MsgGenCompleted).assistant_response!,
               timestamp: new Date().toISOString(),
             };
             chatAddMessage(completionMsg);
@@ -218,12 +260,14 @@ export function useWhiteboardSync(roomId: string, passcode?: string): Whiteboard
       ws.onopen = () => {
         attemptRef.current = 0; // reset backoff on successful connect
         setConnected(true);
+        useRoomStore.getState().setSendWS(safeSend);
       };
 
       ws.onmessage = (evt) => { void handleMessage(evt); };
 
       ws.onclose = (evt) => {
         setConnected(false);
+        useRoomStore.getState().setSendWS(null);
         wsRef.current = null;
 
         if (intentionalClose.current) return; // clean unmount — don't retry

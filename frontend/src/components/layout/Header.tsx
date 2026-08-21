@@ -258,7 +258,9 @@ export default function Header({ roomId, passcode, onHomeClick }: HeaderProps) {
 
   // ── Share ────────────────────────────────────────────────────────────────
   const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}?room=${roomId}`;
+    const url = passcode
+      ? `${window.location.origin}/room/${roomId}?passcode=${encodeURIComponent(passcode)}`
+      : `${window.location.origin}/room/${roomId}`;
     try {
       await navigator.clipboard.writeText(url);
     } catch {
@@ -272,7 +274,7 @@ export default function Header({ roomId, passcode, onHomeClick }: HeaderProps) {
     }
     setShareToast(true);
     setTimeout(() => setShareToast(false), 2000);
-  }, [roomId]);
+  }, [roomId, passcode]);
 
   // ── Export ZIP ───────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {

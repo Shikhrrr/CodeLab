@@ -141,55 +141,56 @@ export default function RightDrawer({ roomId, passcode }: RightDrawerProps) {
         </div>
 
         {/* ── CODE EXPLORER ───────────────────────────────────────────── */}
-        {activeTab === 'code' && (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          style={{ display: activeTab === 'code' ? 'flex' : 'none' }}
+        >
+          {/* Section header */}
+          <div
+            style={{
+              borderBottom: '2px solid #121212',
+              background: '#121212',
+            }}
+            className="shrink-0 px-3 py-1.5"
+          >
+            <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#60EFFF]">
+              Project Files
+            </span>
+          </div>
 
-            {/* Section header */}
+          {/* Split: file tree (fixed 180px) + editor (flex) */}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {/* File tree sidebar */}
             <div
               style={{
-                borderBottom: '2px solid #121212',
-                background: '#121212',
+                width: 180,
+                minWidth: 180,
+                borderRight: '2px solid #121212',
+                background: '#F8F7F2',
+                overflowY: 'auto',
               }}
-              className="shrink-0 px-3 py-1.5"
             >
-              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#60EFFF]">
-                Project Files
-              </span>
+              <FileTree
+                files={files}
+                activeFileId={activeFileId}
+                onSelectFile={(f) => setActiveFile(f.id ?? f.path)}
+              />
             </div>
 
-            {/* Split: file tree (fixed 180px) + editor (flex) */}
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-              {/* File tree sidebar */}
-              <div
-                style={{
-                  width: 180,
-                  minWidth: 180,
-                  borderRight: '2px solid #121212',
-                  background: '#F8F7F2',
-                  overflowY: 'auto',
-                }}
-              >
-                <FileTree
-                  files={files}
-                  activeFileId={activeFileId}
-                  onSelectFile={(f) => setActiveFile(f.id)}
-                />
-              </div>
-
-              {/* Monaco editor */}
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <CodeEditor roomId={roomId} passcode={passcode} />
-              </div>
+            {/* Monaco editor */}
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <CodeEditor roomId={roomId} passcode={passcode} />
             </div>
           </div>
-        )}
+        </div>
 
         {/* ── AI LOGS ─────────────────────────────────────────────────── */}
-        {activeTab === 'ai' && (
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <AiChatDrawer roomId={roomId} passcode={passcode} />
-          </div>
-        )}
+        <div
+          className="min-h-0 flex-1 overflow-hidden flex flex-col"
+          style={{ display: activeTab === 'ai' ? 'flex' : 'none' }}
+        >
+          <AiChatDrawer roomId={roomId} passcode={passcode} />
+        </div>
       </div>
     </aside>
   );
