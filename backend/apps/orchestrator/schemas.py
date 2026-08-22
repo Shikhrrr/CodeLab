@@ -60,11 +60,12 @@ class ScaffoldingPlan(BaseModel):
     file_manifest: List[str] # exact file paths 
 
 class IntentDecision(BaseModel):
-    mode: Literal["SCAFFOLD", "EDIT", "EXPLAIN"] = Field(
+    mode: Literal["SCAFFOLD", "EDIT", "EXPLAIN", "BAD"] = Field(
         description=(
             "'SCAFFOLD' to generate the initial project from canvas topology, "
             "'EDIT' to create, edit, patch, fix, or modify one or multiple files, "
-            "'EXPLAIN' to answer questions, explain code, or give advice without modifying code."
+            "'EXPLAIN' to answer questions, explain code, or give advice without modifying code, "
+            "'BAD' for off-topic queries completely unrelated to programming or software engineering."
         )
     )
 

@@ -42,7 +42,7 @@ const useProjectStore = create<ProjectState & ProjectActions>()((set) => ({
   generationError: null,
 
   // Actions
-  setFiles: (files) => set({ files }),
+  setFiles: (files) => set({ files, fileBuffers: {} }),
 
   setActiveFileId: (fileId) => set({ activeFileId: fileId }),
 

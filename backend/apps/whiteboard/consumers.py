@@ -163,7 +163,7 @@ class WhiteboardConsumer(AsyncJsonWebsocketConsumer):
 
     def _execute_agent(self, user_prompt: str) -> dict:
         """Synchronously invokes LangGraph using PostgreSQL checkpointer state."""
-        config = {"configurable": {"thread_id": str(self.room_id).strip().lower()}}
+        config = {"configurable": {"thread_id": str(self.room_id).strip()}}
 
         # 1. Fetch canvas context
         canvas = CanvasState.objects.filter(room_id=self.room_id).first()

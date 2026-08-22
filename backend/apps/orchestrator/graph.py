@@ -8,16 +8,6 @@ from apps.orchestrator.nodes.intent_router import intent_router
 from apps.orchestrator.nodes.explainer import explainer_agent
 from apps.orchestrator.checkpointer import get_checkpointer, init_checkpointer
 
-def route_entry(state: OrchestratorState):
-    mode = state.get("mode", "").upper()
-
-    if mode == "EDIT":
-        return "editor_agent"
-    elif mode == "EXPLAIN":
-        return "explainer_agent"
-    elif mode == "SCAFFOLD":
-        return "validator"
-    return "intent_router"
 
 def route_after_intent(state: OrchestratorState) -> str:
     detected = state.get("mode", "EXPLAIN").upper()
@@ -25,6 +15,8 @@ def route_after_intent(state: OrchestratorState) -> str:
         return "editor_agent"
     elif detected == "SCAFFOLD":
         return "validator"
+    elif detected == "BAD":
+        return END
     return "explainer_agent"
 
 def should_continue_validation(state: OrchestratorState):
@@ -44,7 +36,7 @@ def compile_workflow():
     workflow.add_node("planner", plan_scaffolding)
     workflow.add_node("generator", generate_codebase)
 
-    workflow.set_conditional_entry_point(route_entry)
+    workflow.set_entry_point("intent_router")
     workflow.add_conditional_edges("intent_router", route_after_intent)
     workflow.add_conditional_edges("validator", should_continue_validation)
 

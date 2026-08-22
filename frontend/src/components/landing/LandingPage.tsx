@@ -653,10 +653,10 @@ export default function LandingPage({ onNavigateToRoom }: LandingPageProps) {
           </div>
 
           <h2 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight text-[#121212] leading-tight">
-            STOP WRITING HEAVY PROMPTS.
+            STOP WRITING HEAVY PROMPTS
             <br />
             <span className="bg-[#FF90E8] px-3 py-1 border-4 border-black shadow-[6px_6px_0px_0px_#121212] inline-block -rotate-1 mt-2">
-              START DRAWING ARCHITECURES INSTEAD.
+              START DRAWING ARCHITECURES INSTEAD
             </span>
           </h2>
 

@@ -176,10 +176,19 @@ export function useWhiteboardSync(roomId: string, passcode?: string): Whiteboard
 
         // ── AI & Chat Broadcasts ──────────────────────────────────────────
         case 'chat_message': {
-          const role = (msg as { role?: 'user' | 'assistant' }).role ||
-            ((msg as { sender?: string }).sender === 'CodeLab AI' ? 'assistant' : 'user');
-          const content = (msg as { content?: string }).content || '';
-          const sender = (msg as { sender?: string }).sender;
+          const chatMsg = msg as {
+            role?: 'user' | 'assistant';
+            content?: string;
+            sender?: string;
+            files_changed?: boolean;
+            files_updated?: boolean;
+          };
+          const role =
+            chatMsg.role ||
+            (chatMsg.sender === 'CodeLab AI' ? 'assistant' : 'user');
+          const content = chatMsg.content || '';
+          const sender = chatMsg.sender;
+
           chatAddMessage({
             id: crypto.randomUUID(),
             role,
@@ -187,8 +196,19 @@ export function useWhiteboardSync(roomId: string, passcode?: string): Whiteboard
             sender,
             timestamp: new Date().toISOString(),
           });
+
           if (role === 'assistant') {
             useChatStore.getState().setIsStreaming(false);
+          }
+
+          // Refetch project files in real time if agent changed files
+          if (chatMsg.files_changed || chatMsg.files_updated) {
+            try {
+              const files = await listProjectFiles(roomId, passcode);
+              projectSetFiles(files);
+            } catch (err) {
+              console.error('[WS] Failed to refetch files on chat_message files_changed:', err);
+            }
           }
           break;
         }

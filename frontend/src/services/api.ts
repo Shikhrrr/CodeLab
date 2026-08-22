@@ -270,7 +270,7 @@ export async function getChatHistory(
   // Try /rooms/{roomId}/chat/history/ first, then fall back to /rooms/{roomId}/chat/
   try {
     const { data } = await apiClient.get(
-      `/rooms/${cleanId}/chat/history/`,
+      `/rooms/${cleanId}/chat/`,
       withPasscode(passcode),
     );
     responseData = data;
